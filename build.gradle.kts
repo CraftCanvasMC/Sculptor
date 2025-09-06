@@ -1,5 +1,6 @@
 plugins {
-    id("java")
+    `java-library`
+    idea
 }
 
 // project information
@@ -8,6 +9,10 @@ version = "1.0.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+}
+
+dependencies {
+    api("org.jspecify:jspecify:1.0.0")
 }
 
 tasks.jar {
