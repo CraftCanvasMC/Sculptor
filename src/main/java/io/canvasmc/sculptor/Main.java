@@ -126,7 +126,7 @@ public class Main {
     }
 
     @SuppressWarnings("resource")
-    public static void boot(File serverJar, String[] args) {
+    private static void boot(File serverJar, String[] args) {
         try {
             JarFile jarFile = new JarFile(serverJar);
             String mainClassName = jarFile.getManifest().getMainAttributes().getValue("Main-Class");
@@ -151,7 +151,7 @@ public class Main {
         }
     }
 
-    public static Path getOrCreate(Path directory) {
+    private static Path getOrCreate(Path directory) {
         try {
             if (directory == null) throw new NullPointerException("directory");
             Files.createDirectories(directory);
@@ -186,7 +186,7 @@ public class Main {
         return new LaunchSpecifications(version, includeExperimental, fileName);
     }
 
-    public static @NonNull String generateKeyBlock(int buildNumber, String gitCommit, String mcVersion) {
+    private static @NonNull String generateKeyBlock(int buildNumber, String gitCommit, String mcVersion) {
         try {
             String input = buildNumber + "-" + gitCommit + "-" + mcVersion;
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
