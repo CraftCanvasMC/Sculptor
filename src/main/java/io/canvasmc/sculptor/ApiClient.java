@@ -10,6 +10,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -39,9 +40,9 @@ public final class ApiClient {
      * Otherwise, only stable builds are returned.</p>
      *
      * @param minecraftVersion the target Minecraft version (non-null, but may be blank to fetch all builds)
-     * @param experimental whether to include experimental builds in the result
+     * @param experimental     whether to include experimental builds in the result
      * @return a non-null list of matching builds (may be empty)
-     * @throws IOException if the API request fails
+     * @throws IOException          if the API request fails
      * @throws InterruptedException if the HTTP request is interrupted
      */
     public @NonNull List<Build> getAllBuilds(String minecraftVersion, boolean experimental) throws IOException, InterruptedException {
@@ -57,7 +58,9 @@ public final class ApiClient {
         }
 
         String json = sendRequest(url.toString());
-        return parseBuildsArray(json);
+        List<Build> builds = parseBuildsArray(json);
+        builds.sort(Comparator.comparingInt(Build::buildNumber));
+        return builds;
     }
 
     /**
@@ -66,10 +69,10 @@ public final class ApiClient {
      * <p>If {@code includeExperimental} is true, experimental builds are considered.
      * Otherwise, only stable builds are used when determining the latest version.</p>
      *
-     * @param minecraftVersion the target Minecraft version
+     * @param minecraftVersion    the target Minecraft version
      * @param includeExperimental whether to include experimental builds in the search
      * @return the latest build matching the filters, or {@code null} if none exist
-     * @throws IOException if the API request fails
+     * @throws IOException          if the API request fails
      * @throws InterruptedException if the HTTP request is interrupted
      */
     public @Nullable Build getLatestBuildForVersion(String minecraftVersion, boolean includeExperimental)
@@ -93,7 +96,7 @@ public final class ApiClient {
      *
      * @param minecraftVersion the target Minecraft version
      * @return the latest stable build, or {@code null} if none exist
-     * @throws IOException if the API request fails
+     * @throws IOException          if the API request fails
      * @throws InterruptedException if the HTTP request is interrupted
      */
     public @Nullable Build getLatestBuildForVersion(String minecraftVersion)
@@ -106,7 +109,7 @@ public final class ApiClient {
      *
      * @param experimental whether to allow experimental builds to be returned
      * @return the latest available build
-     * @throws IOException if the API request fails
+     * @throws IOException          if the API request fails
      * @throws InterruptedException if the HTTP request is interrupted
      */
     public @NonNull Build getLatestBuild(boolean experimental) throws IOException, InterruptedException {
@@ -161,7 +164,7 @@ public final class ApiClient {
     }
 
     private @NonNull List<Commit> parseCommits(@NonNull String json) {
-        List<Commit> commits = new ArrayList<>();
+        List<Commit> commits = new LinkedList<>();
         String key = "\"commits\":";
         int start = json.indexOf(key);
         if (start < 0) return commits;
@@ -184,7 +187,7 @@ public final class ApiClient {
     }
 
     private @NonNull String @NonNull [] splitObjects(@NonNull String json) {
-        List<String> objects = new ArrayList<>();
+        List<String> objects = new LinkedList<>();
         int braceCount = 0;
         int lastSplit = 0;
 
