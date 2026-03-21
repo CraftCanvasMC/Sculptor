@@ -31,7 +31,19 @@ public final class ApiClient {
     /**
      * The HTTP client
      */
-    private final HttpClient CLIENT = HttpClient.newHttpClient();
+    private static final HttpClient CLIENT = HttpClient.newHttpClient();
+
+    private final String project;
+
+    /**
+     * Constructs a new API client for a provided project
+     *
+     * @param project
+     *     the project id
+     */
+    public ApiClient(final @NonNull String project) {
+        this.project = project.toLowerCase();
+    }
 
     /**
      * Fetches all builds for a specific Minecraft version.
@@ -39,22 +51,26 @@ public final class ApiClient {
      * <p>If {@code experimental} is true, experimental builds are included.
      * Otherwise, only stable builds are returned.</p>
      *
-     * @param minecraftVersion the target Minecraft version (non-null, but may be blank to fetch all builds)
-     * @param experimental     whether to include experimental builds in the result
+     * @param minecraftVersion
+     *     the target Minecraft version (non-null, but may be blank to fetch all builds)
+     * @param experimental
+     *     whether to include experimental builds in the result
+     *
      * @return a non-null list of matching builds (may be empty)
-     * @throws IOException          if the API request fails
-     * @throws InterruptedException if the HTTP request is interrupted
+     *
+     * @throws IOException
+     *     if the API request fails
+     * @throws InterruptedException
+     *     if the HTTP request is interrupted
      */
     public @NonNull List<Build> getAllBuilds(String minecraftVersion, boolean experimental) throws IOException, InterruptedException {
-        StringBuilder url = new StringBuilder(BASE_URL + "/builds");
+        StringBuilder url = new StringBuilder(BASE_URL + "/builds?project=" + project);
 
-        boolean hasQuery = false;
         if (minecraftVersion != null && !minecraftVersion.isBlank()) {
-            url.append("?minecraft_version=").append(minecraftVersion);
-            hasQuery = true;
+            url.append("&channel=").append(minecraftVersion);
         }
         if (experimental) {
-            url.append(hasQuery ? "&" : "?").append("experimental=true");
+            url.append("&experimental=true");
         }
 
         String json = sendRequest(url.toString());
@@ -69,14 +85,20 @@ public final class ApiClient {
      * <p>If {@code includeExperimental} is true, experimental builds are considered.
      * Otherwise, only stable builds are used when determining the latest version.</p>
      *
-     * @param minecraftVersion    the target Minecraft version
-     * @param includeExperimental whether to include experimental builds in the search
+     * @param minecraftVersion
+     *     the target Minecraft version
+     * @param includeExperimental
+     *     whether to include experimental builds in the search
+     *
      * @return the latest build matching the filters, or {@code null} if none exist
-     * @throws IOException          if the API request fails
-     * @throws InterruptedException if the HTTP request is interrupted
+     *
+     * @throws IOException
+     *     if the API request fails
+     * @throws InterruptedException
+     *     if the HTTP request is interrupted
      */
     public @Nullable Build getLatestBuildForVersion(String minecraftVersion, boolean includeExperimental)
-            throws IOException, InterruptedException {
+        throws IOException, InterruptedException {
 
         List<Build> builds = getAllBuilds(minecraftVersion, includeExperimental);
         if (builds.isEmpty()) {
@@ -84,8 +106,8 @@ public final class ApiClient {
         }
 
         return builds.stream()
-                .max(Comparator.comparingInt(Build::buildNumber))
-                .orElse(null);
+            .max(Comparator.comparingInt(Build::buildNumber))
+            .orElse(null);
     }
 
     /**
@@ -94,36 +116,68 @@ public final class ApiClient {
      * <p>This is equivalent to calling
      * {@link #getLatestBuildForVersion(String, boolean)} with {@code includeExperimental = false}.</p>
      *
-     * @param minecraftVersion the target Minecraft version
+     * @param minecraftVersion
+     *     the target Minecraft version
+     *
      * @return the latest stable build, or {@code null} if none exist
-     * @throws IOException          if the API request fails
-     * @throws InterruptedException if the HTTP request is interrupted
+     *
+     * @throws IOException
+     *     if the API request fails
+     * @throws InterruptedException
+     *     if the HTTP request is interrupted
      */
     public @Nullable Build getLatestBuildForVersion(String minecraftVersion)
-            throws IOException, InterruptedException {
+        throws IOException, InterruptedException {
         return getLatestBuildForVersion(minecraftVersion, false);
     }
 
     /**
      * Returns the latest build across <b>all Minecraft versions</b>.
      *
-     * @param experimental whether to allow experimental builds to be returned
+     * @param experimental
+     *     whether to allow experimental builds to be returned
+     *
      * @return the latest available build
-     * @throws IOException          if the API request fails
-     * @throws InterruptedException if the HTTP request is interrupted
+     *
+     * @throws IOException
+     *     if the API request fails
+     * @throws InterruptedException
+     *     if the HTTP request is interrupted
      */
     public @NonNull Build getLatestBuild(boolean experimental) throws IOException, InterruptedException {
-        String url = BASE_URL + "/builds/latest" + (experimental ? "?experimental=true" : "");
+        String url = BASE_URL + "/builds/latest?project=" + project + (experimental ? "&experimental=true" : "");
         String json = sendRequest(url);
         return parseSingleBuild(json);
     }
 
+    /**
+     * Returns the build across <b>all Minecraft versions</b> related to the provided build number.
+     *
+     * @param buildNum
+     *     the build number
+     *
+     * @return the build associated with the provided build number
+     *
+     * @throws IOException
+     *     if the API request fails
+     * @throws InterruptedException
+     *     if the HTTP request is interrupted
+     */
+    public @Nullable Build getBuild(int buildNum) throws IOException, InterruptedException {
+        String json = sendRequest(BASE_URL + "/builds?project=" + project + "&experimental=true");
+        List<Build> builds = parseBuildsArray(json);
+        builds.sort(Comparator.comparingInt(Build::buildNumber));
+        return builds.stream()
+            .filter((build) -> build.buildNumber == buildNum)
+            .findFirst().orElse(null);
+    }
+
     private String sendRequest(String url) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Accept", "application/json")
-                .GET()
-                .build();
+            .uri(URI.create(url))
+            .header("Accept", "application/json")
+            .GET()
+            .build();
 
         HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -152,15 +206,16 @@ public final class ApiClient {
     }
 
     private @NonNull Build parseSingleBuild(String json) {
-        int buildNumber = extractInt(json, "buildNumber");
+        int buildNumber = extractIntElse(json, "buildNumber", -1);
         String url = extractString(json, "url");
         String downloadUrl = extractString(json, "downloadUrl");
-        String mcVersion = extractString(json, "minecraftVersion");
+        String channelVersion = extractString(json, "channelVersion");
         long timestamp = extractLong(json, "timestamp");
         boolean experimental = extractBoolean(json, "isExperimental");
+        ChannelType channelType = buildNumber == -1 ? ChannelType.LOCAL : experimental ? ChannelType.BETA : ChannelType.STABLE;
 
         List<Commit> commits = parseCommits(json);
-        return new Build(buildNumber, url, downloadUrl, mcVersion, timestamp, experimental, commits.toArray(new Commit[0]));
+        return new Build(buildNumber, url, downloadUrl, channelVersion, timestamp, channelType, commits.toArray(new Commit[0]));
     }
 
     private @NonNull List<Commit> parseCommits(@NonNull String json) {
@@ -223,6 +278,11 @@ public final class ApiClient {
         return value == null ? 0 : Integer.parseInt(value);
     }
 
+    private int extractIntElse(String json, String key, int fallback) {
+        String value = extractNumber(json, key);
+        return value == null ? fallback : Integer.parseInt(value);
+    }
+
     private long extractLong(String json, String key) {
         String value = extractNumber(json, key);
         return value == null ? 0L : Long.parseLong(value);
@@ -255,24 +315,45 @@ public final class ApiClient {
     }
 
     /**
+     * The release channel of this build
+     */
+    // note: modified from original form to remove text color refs
+    public enum ChannelType {
+        STABLE(),
+        BETA(),
+        LOCAL(),
+        UNKNOWN();
+
+        ChannelType() {
+        }
+    }
+
+    /**
      * Represents a Jenkins build
      *
-     * @param buildNumber      the build number
-     * @param url              the URL for this associated build
-     * @param downloadUrl      the download URL
-     * @param minecraftVersion the Minecraft version for this build
-     * @param timestamp        the timestamp of the associated build
-     * @param isExperimental   if the build is marked as experimental
-     * @param commits          an array of commits in this build, can be empty
+     * @param buildNumber
+     *     the build number
+     * @param url
+     *     the URL for this associated build
+     * @param downloadUrl
+     *     the download URL
+     * @param channelVersion
+     *     the channel version for this build
+     * @param timestamp
+     *     the timestamp of the associated build
+     * @param channelType
+     *     the channel of this build
+     * @param commits
+     *     an array of commits in this build, can be empty
      */
     public record Build(
-            int buildNumber,
-            String url,
-            String downloadUrl,
-            String minecraftVersion,
-            long timestamp,
-            boolean isExperimental,
-            Commit[] commits
+        int buildNumber,
+        String url,
+        String downloadUrl,
+        String channelVersion,
+        long timestamp,
+        ChannelType channelType,
+        Commit[] commits
     ) {
         public boolean hasChanges() {
             return this.commits.length > 0;
@@ -282,8 +363,10 @@ public final class ApiClient {
     /**
      * Represents a GitHub Commit
      *
-     * @param message the commit message
-     * @param hash    the commit hash
+     * @param message
+     *     the commit message
+     * @param hash
+     *     the commit hash
      */
     public record Commit(String message, String hash) {
     }
