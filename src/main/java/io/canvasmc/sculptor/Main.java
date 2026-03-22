@@ -27,7 +27,7 @@ public class Main {
             throw new IllegalArgumentException("Couldn't build launch specification arguments");
         }
         System.out.println("Launching Sculptor searching for Minecraft version " + specifications.minecraftVersion());
-        ApiClient api = new ApiClient();
+        ApiClient api = new ApiClient("canvas");
         ApiClient.Build build;
         try {
             build = api.getLatestBuildForVersion(
