@@ -15,6 +15,26 @@ dependencies {
     api("org.jspecify:jspecify:1.0.0")
 }
 
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = Charsets.UTF_8.name()
+    options.release = 21
+    options.compilerArgs.addAll(listOf("-Xlint:-deprecation", "-Xlint:-removal"))
+}
+
+tasks.withType<Javadoc>().configureEach {
+    options.encoding = Charsets.UTF_8.name()
+}
+
+tasks.withType<ProcessResources>().configureEach {
+    filteringCharset = Charsets.UTF_8.name()
+}
+
+extensions.configure<JavaPluginExtension> {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
 tasks.jar {
     manifest {
         attributes(
