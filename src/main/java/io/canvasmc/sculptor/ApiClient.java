@@ -23,7 +23,7 @@ import java.util.List;
  *
  * <p>All returned collections are non-null but may be empty unless otherwise noted.</p>
  */
-public final class ApiClient 
+public final class ApiClient {
     /**
      * The base URL for API access
      */
